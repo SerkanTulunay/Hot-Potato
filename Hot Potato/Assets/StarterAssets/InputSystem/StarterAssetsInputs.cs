@@ -13,6 +13,7 @@ namespace StarterAssets
 		public bool jump;
 		public bool sprint;
 		public bool throwing;
+		public bool taunting;
 
 		[Header("Movement Settings")]
 		public bool analogMovement;
@@ -50,6 +51,10 @@ namespace StarterAssets
 			ThrowInput(value.isPressed);
 		}
 
+		public void OnTaunt(InputValue value)
+		{
+			TauntInput(value.isPressed);
+		}
 
 #endif
 
@@ -77,6 +82,11 @@ namespace StarterAssets
 		public void ThrowInput(bool newThrowState)
 		{
 			throwing = newThrowState;
+		}
+
+		public void TauntInput(bool newTauntState)
+		{
+			taunting = newTauntState;
 		}
 
 		private void OnApplicationFocus(bool hasFocus)

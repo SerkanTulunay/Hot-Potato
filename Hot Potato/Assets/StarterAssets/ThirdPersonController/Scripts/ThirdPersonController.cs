@@ -1,4 +1,5 @@
-﻿ using UnityEngine;
+﻿using Unity.Netcode;
+using UnityEngine;
 #if ENABLE_INPUT_SYSTEM 
 using UnityEngine.InputSystem;
 #endif
@@ -14,6 +15,8 @@ namespace StarterAssets
 #endif
     public class ThirdPersonController : MonoBehaviour
     {
+        private NetworkObject networkObject;
+        public Transform ballHolderTransform;
 
         [Header("Player")]
         [Tooltip("Move speed of the character in m/s")]
@@ -131,6 +134,7 @@ namespace StarterAssets
             {
                 _mainCamera = GameObject.FindGameObjectWithTag("MainCamera");
             }
+            networkObject = GetComponent<NetworkObject>();
         }
 
         private void Start()
@@ -159,8 +163,9 @@ namespace StarterAssets
 
             JumpAndGravity();
             GroundedCheck();
-            ThrowingPotato();
+            Taunting();
             Move();
+            ThrowPotato();
         }
 
         private void LateUpdate()
@@ -190,6 +195,12 @@ namespace StarterAssets
             {
                 _animator.SetBool(_animIDGrounded, Grounded);
             }
+        }
+
+        [Rpc(SendTo.Server)]
+        private void GroundedCheckServerRpc()
+        {
+            GroundedCheck();
         }
 
         private void CameraRotation()
@@ -263,15 +274,17 @@ namespace StarterAssets
                     RotationSmoothTime);
 
                 // rotate to face input direction relative to camera position
-                transform.rotation = Quaternion.Euler(0.0f, rotation, 0.0f);
+                //transform.rotation = Quaternion.Euler(0.0f, rotation, 0.0f);
+                RotatePlayerServerRpc(rotation);
             }
 
 
             Vector3 targetDirection = Quaternion.Euler(0.0f, _targetRotation, 0.0f) * Vector3.forward;
 
             // move the player
-            _controller.Move(targetDirection.normalized * (_speed * Time.deltaTime) +
-                             new Vector3(0.0f, _verticalVelocity, 0.0f) * Time.deltaTime);
+            //_controller.Move(targetDirection.normalized * (_speed * Time.deltaTime) +
+            //                 new Vector3(0.0f, _verticalVelocity, 0.0f) * Time.deltaTime);
+            MovePlayerServerRpc(targetDirection.x,targetDirection.y,targetDirection.z,_speed,_verticalVelocity, _controller);
 
             // update animator if using character
             if (_hasAnimator)
@@ -279,6 +292,32 @@ namespace StarterAssets
                 _animator.SetFloat(_animIDSpeed, _animationBlend);
                 _animator.SetFloat(_animIDMotionSpeed, inputMagnitude);
             }
+        }
+
+        [Rpc(SendTo.Server)]
+        private void MovePlayerServerRpc(float dirX, float dirY, float dirZ, float speed, float vertVel, CharacterController controller)
+        {
+            Vector3 targDir = new Vector3(dirX, dirY, dirZ);
+            controller.Move(targDir.normalized * (speed * Time.deltaTime) +
+                            new Vector3(0.0f, vertVel, 0.0f) * Time.deltaTime);
+        }
+
+        [Rpc(SendTo.Server)]
+        private void RotatePlayerServerRpc(float rotation)
+        {
+            transform.rotation = Quaternion.Euler(0.0f, rotation, 0.0f);
+        }
+
+        [Rpc(SendTo.Server)]
+        private void JumpServerRpc()
+        {
+           
+        }
+
+        [Rpc(SendTo.Server)]
+        private void GravityServerRpc()
+        {
+
         }
 
         private void JumpAndGravity()
@@ -352,13 +391,22 @@ namespace StarterAssets
             }
         }
 
-        private void ThrowingPotato()
+        private void ThrowPotato()
         {
             if(_input.throwing)
             {
-                //call ball throw
-                ServerPotato.instance.ThrowPotato(gameObject.transform.forward);
+                Debug.Log("THROWING POTATO");
+                ServerPotato.instance.ThrowPotato(gameObject.transform.forward,networkObject.OwnerClientId);
                 _input.throwing = false;
+            }
+        }
+
+        private void Taunting()
+        {
+            if(_input.taunting)
+            {
+                ServerSoundManager.instance.PlayerTauntSound();
+                _input.taunting = false;
             }
         }
 
